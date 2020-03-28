@@ -6,8 +6,10 @@ import com.nemesiss.dev.oauthplayground.Exception.*;
 import com.nemesiss.dev.oauthplayground.Model.*;
 import com.nemesiss.dev.oauthplayground.ParamValidator.PlaygroundIDValidator;
 import com.nemesiss.dev.oauthplayground.Utils.EqualUtils;
+import com.nemesiss.dev.oauthplayground.Utils.JWTUtils;
 import com.nemesiss.dev.oauthplayground.Utils.SnowFlakeId;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.shiro.authz.annotation.RequiresAuthentication;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
@@ -107,7 +109,12 @@ public class EntranceController {
         UriComponents redirectExchangeTokenUrl = UriComponentsBuilder.fromHttpUrl(RedirectUri).build();
         PlaygroundInitialModel playground = GetPlaygroundInitialInfo(PlaygroundID);
 
-        if (!playground.getHost().equals(redirectExchangeTokenUrl.getHost())) {
+        StringBuffer host = new StringBuffer(Objects.requireNonNull(redirectExchangeTokenUrl.getHost()));
+        int port = -1;
+        if((port = redirectExchangeTokenUrl.getPort()) != -1) {
+            host.append(":").append(port);
+        }
+        if (!playground.getHost().equals(host.toString())) {
             throw new RedirectURLMismatchException(playground.getHost(), redirectExchangeTokenUrl.getHost());
         }
 
@@ -145,7 +152,7 @@ public class EntranceController {
     }
 
     @PlaygroundIDValidator
-    @RequestMapping(value = "{PlaygroundID}/authentication", method = RequestMethod.POST)
+    @RequestMapping(value = "{PlaygroundID}/token", method = RequestMethod.POST)
     public Object TokenExchange(@PathVariable("PlaygroundID")
                                             String PlaygroundID,
                                 @RequestParam("code") String code,
@@ -164,7 +171,9 @@ public class EntranceController {
             throw new RedirectURLMismatchException(playground.getHost(), host);
         }
 
-        return "OK";
+        Map<String,String> ret = new HashMap<>();
+        ret.put("Token", JWTUtils.Sign(PlaygroundID));
+        return ret;
     }
 
     @PlaygroundIDValidator
@@ -203,6 +212,29 @@ public class EntranceController {
         MarkAsLogin(PlaygroundID, ClientId, session);
         return GenerateTokenExchangeUrl(redirectUri, PlaygroundID, AuthRequest.getState());
     }
+
+
+    @RequestMapping("gettoken")
+    public Object GetToken(@RequestParam("playground") String PlaygroundID) {
+        Map<String,String> ret = new HashMap<>();
+        ret.put("Token", JWTUtils.Sign(PlaygroundID));
+        return ret;
+    }
+
+
+    @RequestMapping("{PlaygroundID}/secret")
+    @RequiresAuthentication
+    public String GetSecret(@PathVariable("PlaygroundID") String PlaygroundID) {
+        return "This is secret! " + PlaygroundID;
+    }
+
+
+
+
+
+
+
+
 
     private String GenerateTokenExchangeUrl(UriComponentsBuilder redirectUri, String PlaygroundID, String state) {
         String code = UUID.randomUUID().toString();

@@ -14,6 +14,11 @@
       "name": "deploy.url.prefix",
       "type": "java.lang.String",
       "description": "Description for deploy.url.prefix."
+    },
+    {
+      "name": "jwt.expired",
+      "type": "java.lang.Long",
+      "description": "Description for deploy.url.prefix."
     }
   ]
 }

@@ -9,7 +9,7 @@ public class EqualUtils {
             if(!destination.containsKey(entry.getKey())) {
                 return false;
             }
-            if(destination.get(entry.getKey()).equals(entry.getValue())) {
+            if(!destination.get(entry.getKey()).equals(entry.getValue())) {
                 return false;
             }
         }
