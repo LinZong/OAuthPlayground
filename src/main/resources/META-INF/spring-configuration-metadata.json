@@ -1,0 +1,19 @@
+{
+  "properties": [
+    {
+      "name": "snowflake.datacenter.id",
+      "type": "java.lang.Long",
+      "description": "Description for snowflake.datacenter.id."
+    },
+    {
+      "name": "snowflake.machine.id",
+      "type": "java.lang.Long",
+      "description": "Description for snowflake.machine.id."
+    },
+    {
+      "name": "deploy.url.prefix",
+      "type": "java.lang.String",
+      "description": "Description for deploy.url.prefix."
+    }
+  ]
+}
