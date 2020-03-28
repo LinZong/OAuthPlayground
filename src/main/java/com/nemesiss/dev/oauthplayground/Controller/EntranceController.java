@@ -109,9 +109,9 @@ public class EntranceController {
         UriComponents redirectExchangeTokenUrl = UriComponentsBuilder.fromHttpUrl(RedirectUri).build();
         PlaygroundInitialModel playground = GetPlaygroundInitialInfo(PlaygroundID);
 
-        StringBuffer host = new StringBuffer(Objects.requireNonNull(redirectExchangeTokenUrl.getHost()));
+        StringBuilder host = new StringBuilder(Objects.requireNonNull(redirectExchangeTokenUrl.getHost()));
         int port = -1;
-        if((port = redirectExchangeTokenUrl.getPort()) != -1) {
+        if ((port = redirectExchangeTokenUrl.getPort()) != -1) {
             host.append(":").append(port);
         }
         if (!playground.getHost().equals(host.toString())) {
@@ -154,24 +154,24 @@ public class EntranceController {
     @PlaygroundIDValidator
     @RequestMapping(value = "{PlaygroundID}/token", method = RequestMethod.POST)
     public Object TokenExchange(@PathVariable("PlaygroundID")
-                                            String PlaygroundID,
+                                        String PlaygroundID,
                                 @RequestParam("code") String code,
                                 HttpServletRequest request) throws JsonProcessingException, PlaygroundNotExistedException, RedirectURLMismatchException {
 
         String host = request.getHeader("host");
-        if(host == null) {
+        if (host == null) {
             host = request.getHeader("Host");
         }
-        if(host == null) {
+        if (host == null) {
             host = request.getRemoteHost();
         }
 
         PlaygroundInitialModel playground = GetPlaygroundInitialInfo(PlaygroundID);
-        if(!playground.getHost().equals(host)) {
+        if (!playground.getHost().equals(host)) {
             throw new RedirectURLMismatchException(playground.getHost(), host);
         }
 
-        Map<String,String> ret = new HashMap<>();
+        Map<String, String> ret = new HashMap<>();
         ret.put("Token", JWTUtils.Sign(PlaygroundID));
         return ret;
     }
@@ -216,7 +216,7 @@ public class EntranceController {
 
     @RequestMapping("gettoken")
     public Object GetToken(@RequestParam("playground") String PlaygroundID) {
-        Map<String,String> ret = new HashMap<>();
+        Map<String, String> ret = new HashMap<>();
         ret.put("Token", JWTUtils.Sign(PlaygroundID));
         return ret;
     }
@@ -227,13 +227,6 @@ public class EntranceController {
     public String GetSecret(@PathVariable("PlaygroundID") String PlaygroundID) {
         return "This is secret! " + PlaygroundID;
     }
-
-
-
-
-
-
-
 
 
     private String GenerateTokenExchangeUrl(UriComponentsBuilder redirectUri, String PlaygroundID, String state) {
