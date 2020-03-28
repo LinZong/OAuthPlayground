@@ -4,9 +4,8 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nemesiss.dev.oauthplayground.Exception.PlaygroundException;
 import com.nemesiss.dev.oauthplayground.Exception.PlaygroundExistedException;
-import com.nemesiss.dev.oauthplayground.Model.ErrorResponse;
-import com.nemesiss.dev.oauthplayground.Model.PlaygroundInfoModel;
-import com.nemesiss.dev.oauthplayground.Model.PlaygroundInitialModel;
+import com.nemesiss.dev.oauthplayground.Model.*;
+import com.nemesiss.dev.oauthplayground.ParamValidator.PlaygroundIDValidator;
 import com.nemesiss.dev.oauthplayground.Utils.SnowFlakeId;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -15,12 +14,19 @@ import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.http.MediaType;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.util.UriComponents;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpSession;
 import javax.validation.Valid;
+import javax.validation.constraints.NotBlank;
+import javax.validation.constraints.NotEmpty;
+import javax.validation.constraints.NotNull;
+import javax.validation.constraints.Pattern;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
@@ -28,6 +34,7 @@ import java.util.concurrent.TimeUnit;
 @RestController
 @RequestMapping("oauth2/")
 @EnableAutoConfiguration
+@Validated
 public class EntranceController {
 
     @Autowired
@@ -63,7 +70,42 @@ public class EntranceController {
         return new PlaygroundInfoModel(loginPath.toUriString(), logPath.toUriString());
     }
 
-    private boolean WritePlaygroundInfoToCache(long PlaygroundID, PlaygroundInitialModel PlaygroundInitInfo) throws PlaygroundExistedException, JsonProcessingException {
+    @PlaygroundIDValidator
+    @RequestMapping(value = "{PlaygroundID}/login", method = RequestMethod.GET)
+    public Object HandleLoginRequest(@PathVariable("PlaygroundID")
+                                             String PlaygroundID,
+
+                                     @Pattern(regexp = "^(code|implict|password)$")
+                                     @RequestParam("response_type")
+                                             String ResponseType,
+                                     @NotBlank
+                                     @NotEmpty
+                                     @RequestParam("redirect_uri")
+                                             String RedirectUri,
+                                     @NotBlank
+                                     @NotEmpty
+                                     @RequestParam("scopes")
+                                             String Scopes,
+                                     @NotBlank
+                                     @NotEmpty
+                                     @RequestParam("client_id")
+                                             String ClientId,
+                                     @RequestParam(value = "state", required = false)
+                                             String State,
+                                     HttpSession session) {
+        return "OK!";
+    }
+
+    @PlaygroundIDValidator
+    @RequestMapping(value = "{PlaygroundID}/login", method = RequestMethod.POST)
+    public Object HandleLoginRequest(@PathVariable("PlaygroundID") String PlaygroundID,
+                                     @RequestBody AuthorizationTokenExchangeModel tokenExchange) {
+        return null;
+    }
+
+
+    private boolean WritePlaygroundInfoToCache(long PlaygroundID, PlaygroundInitialModel PlaygroundInitInfo)
+            throws PlaygroundExistedException, JsonProcessingException {
         ValueOperations<String, String> valueOperations = redisTemplate.opsForValue();
 
         boolean addStatus = Optional.ofNullable(valueOperations

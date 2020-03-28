@@ -8,6 +8,7 @@ import org.springframework.validation.BindException;
 import org.springframework.validation.FieldError;
 import org.springframework.validation.ObjectError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
@@ -29,6 +30,13 @@ public class BindExceptionHandler extends ResponseEntityExceptionHandler {
                 ex.getBindingResult().getAllErrors()),
                 headers,
                 HttpStatus.BAD_REQUEST);
+    }
+
+    @Override
+    protected ResponseEntity<Object> handleMissingServletRequestParameter(MissingServletRequestParameterException ex, HttpHeaders headers, HttpStatus status, WebRequest request) {
+        return new ResponseEntity<>(
+                ParamMissingFormatter(ex.getParameterName()),
+                headers, HttpStatus.BAD_REQUEST);
     }
 
     @Override
@@ -54,5 +62,11 @@ public class BindExceptionHandler extends ResponseEntityExceptionHandler {
                                 err.getObjectName(),
                         err.getDefaultMessage()));
         return errors;
+    }
+
+    private Map<String,String> ParamMissingFormatter(String ParameterName) {
+        Map<String, String> map = new HashMap<>();
+        map.put(ParameterName,"doesn't exist.");
+        return map;
     }
 }

@@ -1,6 +1,5 @@
-package com.nemesiss.dev.oauthplayground.Exception;
+package com.nemesiss.dev.oauthplayground.PointCut;
 
-import com.nemesiss.dev.oauthplayground.Model.ErrorResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.aspectj.lang.annotation.AfterThrowing;
 import org.aspectj.lang.annotation.Aspect;
