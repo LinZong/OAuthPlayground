@@ -37,7 +37,7 @@ public class PlaygroundIDVerifyPointCut {
             String playgroundID = (String) args[validator.order()];
             String content = stringRedis.opsForValue().get(playgroundID);
             if (content == null) {
-                throw new PlaygroundNotExistedException(1001, playgroundID);
+                throw new PlaygroundNotExistedException(playgroundID);
             }
         }
         result = proceedingJoinPoint.proceed();
