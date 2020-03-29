@@ -2,15 +2,21 @@ package com.nemesiss.dev.oauthplayground.Utils;
 
 
 import com.auth0.jwt.JWT;
+import com.auth0.jwt.JWTCreator;
 import com.auth0.jwt.JWTVerifier;
 import com.auth0.jwt.algorithms.Algorithm;
 import com.auth0.jwt.exceptions.JWTVerificationException;
+import com.nemesiss.dev.oauthplayground.Model.JWTTokenModel;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.stereotype.Component;
+import org.springframework.util.StringUtils;
 
+import javax.servlet.http.HttpServletRequest;
 import java.util.Date;
+import java.util.List;
+import java.util.Optional;
 
 @Slf4j
 @Component
@@ -26,14 +32,18 @@ public class JWTUtils {
     public void setSecret(String secret) {
         Secret = secret;
     }
+
     @Value("${jwt.expired}")
     public void setExpireTime(long expireTime) {
         EXPIRE_TIME = expireTime;
     }
-    public static String Sign(String PlaygroundID) {
+
+
+    public static String Sign(String PlaygroundID, List<String> ApprovedScopes) {
         Date date = new Date(System.currentTimeMillis() + EXPIRE_TIME);
         return JWT.create()
                 .withClaim("playground", PlaygroundID)
+                .withClaim("scopes", ApprovedScopes.stream().reduce((a, b) -> a + "," + b).orElse(""))
                 .withExpiresAt(date)
                 .sign(Algorithm.HMAC256(Secret));
     }
@@ -49,5 +59,15 @@ public class JWTUtils {
             return false;
         }
         return true;
+    }
+
+    public static Optional<String> GetTokenFromHeader(HttpServletRequest request) {
+        String authorization = request.getHeader("Authorization");
+        String[] tokens = authorization.split(" ");
+        String token = null;
+        if(tokens.length == 2 && tokens[0].equals("Bearer") && !StringUtils.isEmpty(tokens[1])) {
+            token = tokens[1];
+        }
+        return Optional.ofNullable(token);
     }
 }

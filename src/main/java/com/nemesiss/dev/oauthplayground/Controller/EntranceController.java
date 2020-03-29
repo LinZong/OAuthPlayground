@@ -1,9 +1,12 @@
 package com.nemesiss.dev.oauthplayground.Controller;
 
+import com.auth0.jwt.JWT;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nemesiss.dev.oauthplayground.Exception.*;
-import com.nemesiss.dev.oauthplayground.Model.*;
+import com.nemesiss.dev.oauthplayground.Model.AuthorizationRequestModel;
+import com.nemesiss.dev.oauthplayground.Model.PlaygroundInfoModel;
+import com.nemesiss.dev.oauthplayground.Model.PlaygroundInitialModel;
 import com.nemesiss.dev.oauthplayground.ParamValidator.PlaygroundIDValidator;
 import com.nemesiss.dev.oauthplayground.Utils.EqualUtils;
 import com.nemesiss.dev.oauthplayground.Utils.JWTUtils;
@@ -53,8 +56,9 @@ public class EntranceController {
     String DeployUrlPrefix;
 
 
-    private static final String TOKEN_EXCHANGE_HASH_POOL = "TOKEN_EXCHANGE_HASH_POOL";
-    private static final String AUTHENTICATION_INFO_HASH_POOL = "AUTHENTICATION_INFO_HASH_POOL";
+    private static final String TOKEN_EXCHANGE_HASH_POOL = "TOKEN_EXCHANGE";
+    private static final String AUTHENTICATION_INFO_HASH_POOL = "AUTHENTICATION_INFO";
+    private static final String APPROVED_SECRETS = "APPROVED_SECRETS";
 
     private UriComponentsBuilder AuthUrlBuilder(String PlaygroundID, String FunctionName) {
         return UriComponentsBuilder
@@ -104,8 +108,6 @@ public class EntranceController {
                                      HttpSession session) throws PlaygroundNotExistedException, RedirectURLMismatchException, JsonProcessingException {
 
         MarkAsLogout(PlaygroundID, ClientId, session);
-
-
         UriComponents redirectExchangeTokenUrl = UriComponentsBuilder.fromHttpUrl(RedirectUri).build();
         PlaygroundInitialModel playground = GetPlaygroundInitialInfo(PlaygroundID);
 
@@ -121,7 +123,7 @@ public class EntranceController {
         List<String> scopes = Arrays.stream(Scopes.split(",")).collect(Collectors.toList());
         AuthorizationRequestModel AuthRequest = new AuthorizationRequestModel(ResponseType, RedirectUri, scopes, ClientId, State);
 
-        redisTemplate.opsForHash().put(AUTHENTICATION_INFO_HASH_POOL, PlaygroundID, objectMapper.writeValueAsString(AuthRequest));
+        redisTemplate.opsForValue().set(AUTHENTICATION_INFO_HASH_POOL + PlaygroundID, objectMapper.writeValueAsString(AuthRequest), 300, TimeUnit.SECONDS);
 
         return AuthUrlBuilder(PlaygroundID, "authentication")
                 .queryParam("client_id", ClientId)
@@ -152,11 +154,11 @@ public class EntranceController {
     }
 
     @PlaygroundIDValidator
-    @RequestMapping(value = "{PlaygroundID}/token", method = RequestMethod.POST)
+    @RequestMapping(value = "{PlaygroundID}/token", method = RequestMethod.GET)
     public Object TokenExchange(@PathVariable("PlaygroundID")
                                         String PlaygroundID,
                                 @RequestParam("code") String code,
-                                HttpServletRequest request) throws JsonProcessingException, PlaygroundNotExistedException, RedirectURLMismatchException {
+                                HttpServletRequest request) throws JsonProcessingException, PlaygroundNotExistedException, RedirectURLMismatchException, NoAuthenticationRequestException, TokenExchangeCodeMismatchException {
 
         String host = request.getHeader("host");
         if (host == null) {
@@ -171,8 +173,22 @@ public class EntranceController {
             throw new RedirectURLMismatchException(playground.getHost(), host);
         }
 
+        String codeOnServer = GetTokenExchangeCode(PlaygroundID);
+        if (!codeOnServer.equals(code)) {
+            throw new TokenExchangeCodeMismatchException(code);
+        }
+
+        String approvedSecrets = redisTemplate.opsForValue().get(APPROVED_SECRETS + PlaygroundID);
         Map<String, String> ret = new HashMap<>();
-        ret.put("Token", JWTUtils.Sign(PlaygroundID));
+        if (approvedSecrets == null) {
+            approvedSecrets = "";
+        }
+        ret.put("Token",
+                JWTUtils.Sign(
+                        PlaygroundID,
+                        Arrays.stream(approvedSecrets
+                                .split(","))
+                                .collect(Collectors.toList())));
         return ret;
     }
 
@@ -210,24 +226,46 @@ public class EntranceController {
             throw new CredentialMismatchException();
         }
         MarkAsLogin(PlaygroundID, ClientId, session);
-        return GenerateTokenExchangeUrl(redirectUri, PlaygroundID, AuthRequest.getState());
+        Map<String, List<String>> PickupScopes = new HashMap<>();
+        PickupScopes.put("scopes", AuthRequest.getScopes());
+        return PickupScopes;
     }
 
+    @PlaygroundIDValidator
+    @RequestMapping("{PlaygroundID}/scopes")
+    public String MarkApprovedScopes(@PathVariable("PlaygroundID") String PlaygroundID,
+                                     @RequestParam("client_id") String ClientId,
+                                     @RequestParam("scopes") String Scopes,
+                                     HttpSession session) throws NoAuthenticationRequestException, JsonProcessingException {
 
-    @RequestMapping("gettoken")
-    public Object GetToken(@RequestParam("playground") String PlaygroundID) {
-        Map<String, String> ret = new HashMap<>();
-        ret.put("Token", JWTUtils.Sign(PlaygroundID));
-        return ret;
+        if (!DetectLogin(PlaygroundID, ClientId, session)) {
+            throw new NoAuthenticationRequestException(PlaygroundID);
+        }
+        redisTemplate.opsForValue().set(APPROVED_SECRETS + PlaygroundID, Scopes, 10, TimeUnit.MINUTES);
+        AuthorizationRequestModel AuthRequest = GetAuthenticationRequestModel(PlaygroundID);
+        return GenerateTokenExchangeUrl(UriComponentsBuilder.fromHttpUrl(AuthRequest.getRedirectUri()), PlaygroundID, AuthRequest.getState());
     }
 
-
+    @PlaygroundIDValidator
     @RequestMapping("{PlaygroundID}/secret")
     @RequiresAuthentication
-    public String GetSecret(@PathVariable("PlaygroundID") String PlaygroundID) {
-        return "This is secret! " + PlaygroundID;
+    public Object GetSecret(@PathVariable("PlaygroundID") String PlaygroundID, HttpServletRequest request) throws PlaygroundNotExistedException, JsonProcessingException {
+        PlaygroundInitialModel playground = GetPlaygroundInitialInfo(PlaygroundID);
+        Optional<String> Token = JWTUtils.GetTokenFromHeader(request);
+        String scopesStr = JWT.decode(Token.get()).getClaim("scopes").asString();
+
+        Map<String, Object> initialScopeMap = playground.getScopes();
+        Set<String> initialScopes = initialScopeMap.keySet();
+        Set<String> requestedScopes = Arrays.stream(scopesStr.split(",")).collect(Collectors.toSet());
+        initialScopes.retainAll(requestedScopes);
+        Map<String, Object> secretResult = new HashMap<>();
+        for (String initialScope : initialScopes) {
+            secretResult.put(initialScope, initialScopeMap.get(initialScope));
+        }
+        return secretResult;
     }
 
+    // ============= 凭据信息提取帮助方法 ==============
 
     private String GenerateTokenExchangeUrl(UriComponentsBuilder redirectUri, String PlaygroundID, String state) {
         String code = UUID.randomUUID().toString();
@@ -235,7 +273,7 @@ public class EntranceController {
         if (state != null) {
             redirectUri = redirectUri.queryParam("state", state);
         }
-        redisTemplate.opsForHash().put(TOKEN_EXCHANGE_HASH_POOL, PlaygroundID, code);
+        redisTemplate.opsForValue().set(TOKEN_EXCHANGE_HASH_POOL + PlaygroundID, code, 1, TimeUnit.MINUTES);
         return redirectUri.toUriString();
     }
 
@@ -248,25 +286,34 @@ public class EntranceController {
     }
 
     private AuthorizationRequestModel GetAuthenticationRequestModel(String PlaygroundID) throws JsonProcessingException, NoAuthenticationRequestException {
-        Object content = GetHashObject(AUTHENTICATION_INFO_HASH_POOL, PlaygroundID);
-        if (!(content instanceof String)) {
+        String content = GetStringObject(AUTHENTICATION_INFO_HASH_POOL + PlaygroundID);
+        if (content == null) {
             throw new NoAuthenticationRequestException(PlaygroundID);
         }
-        return objectMapper.readValue((String) content, AuthorizationRequestModel.class);
+        return objectMapper.readValue(content, AuthorizationRequestModel.class);
+    }
+
+    private String GetTokenExchangeCode(String PlaygroundID) throws NoAuthenticationRequestException {
+        String content = GetStringObject(TOKEN_EXCHANGE_HASH_POOL + PlaygroundID);
+        if (content == null) {
+            throw new NoAuthenticationRequestException(PlaygroundID);
+        }
+        return content;
     }
 
 
     // =========== SESSION 相关操作 ===============
-    private void MarkAsLogin(String PlaygroundID, String ClientId, HttpSession session) {
-        session.setAttribute(PlaygroundID + ClientId, 1);
+    private static void MarkAsLogin(String PlaygroundID, String ClientId, HttpSession session) {
+        session.setAttribute(PlaygroundID, ClientId);
     }
 
-    private boolean DetectLogin(String PlaygroundID, String ClientId, HttpSession session) {
-        return session.getAttribute(PlaygroundID + ClientId) != null;
+    private static boolean DetectLogin(String PlaygroundID, String ClientId, HttpSession session) {
+        Object shouldBeClientId = session.getAttribute(PlaygroundID);
+        return shouldBeClientId != null && shouldBeClientId.equals(ClientId);
     }
 
-    private void MarkAsLogout(String PlaygroundID, String ClientId, HttpSession session) {
-        session.removeAttribute(PlaygroundID + ClientId);
+    private static void MarkAsLogout(String PlaygroundID, String ClientId, HttpSession session) {
+        session.removeAttribute(PlaygroundID);
     }
 
     // ============ Redis 操作工具方法 ===========
@@ -286,8 +333,8 @@ public class EntranceController {
         return true;
     }
 
-    private Object GetHashObject(String HashPoolKey, String Key) {
-        return redisTemplate.opsForHash().get(HashPoolKey, Key);
+    private String GetStringObject(String Key) {
+        return redisTemplate.opsForValue().get(Key);
     }
 
 }
