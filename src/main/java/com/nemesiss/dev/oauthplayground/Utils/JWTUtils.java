@@ -7,13 +7,18 @@ import com.auth0.jwt.JWTVerifier;
 import com.auth0.jwt.algorithms.Algorithm;
 import com.auth0.jwt.exceptions.JWTVerificationException;
 import com.nemesiss.dev.oauthplayground.Model.JWTTokenModel;
+import jdk.nashorn.internal.parser.Token;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
 import javax.servlet.http.HttpServletRequest;
+import java.util.AbstractMap;
 import java.util.Date;
 import java.util.List;
 import java.util.Optional;
@@ -69,5 +74,13 @@ public class JWTUtils {
             token = tokens[1];
         }
         return Optional.ofNullable(token);
+    }
+
+    public static ResponseEntity<AbstractMap.SimpleEntry<String, String>> GetTokenResponse(String token) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.add("content-type", "application/json");
+        AbstractMap.SimpleEntry<String, String> body = new AbstractMap.SimpleEntry<>("token", token);
+        ResponseEntity<AbstractMap.SimpleEntry<String, String>> responseEntity = new ResponseEntity<>(body, headers, HttpStatus.OK);
+        return responseEntity;
     }
 }

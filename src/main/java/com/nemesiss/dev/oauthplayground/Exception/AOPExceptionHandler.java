@@ -19,9 +19,15 @@ public class AOPExceptionHandler {
         return new ErrorResponse(e.getCode(), e.getMessage());
     }
 
-    @ExceptionHandler({ConstraintViolationException.class})
+    @ExceptionHandler(ConstraintViolationException.class)
     @ResponseBody
     public static ErrorResponse ConstraintViolationExceptionGet(ConstraintViolationException e) {
         return new ErrorResponse(-2, e.getMessage());
+    }
+
+    @ExceptionHandler(Exception.class)
+    @ResponseBody
+    public static ErrorResponse ConstraintViolationExceptionGet(Exception e) {
+        return new ErrorResponse(-1, e.getMessage());
     }
 }

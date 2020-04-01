@@ -2,6 +2,7 @@ package com.nemesiss.dev.oauthplayground.Authentication;
 
 import com.nemesiss.dev.oauthplayground.Model.JWTTokenModel;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.shiro.authc.AuthenticationException;
 import org.apache.shiro.web.filter.authc.BasicHttpAuthenticationFilter;
 import org.springframework.http.HttpStatus;
 import org.springframework.util.StringUtils;
@@ -39,8 +40,12 @@ public class JWTFilter extends BasicHttpAuthenticationFilter {
         String playgroundID = MatchPlaygroundID(((HttpServletRequest) request).getRequestURI());
         if(playgroundID != null && tokens.length == 2 && tokens[0].equals("Bearer") && !StringUtils.isEmpty(tokens[1])) {
             JWTTokenModel token = new JWTTokenModel(tokens[1],playgroundID);
-            getSubject(request, response).login(token);
-            return true;
+
+            try {
+                getSubject(request, response).login(token);
+                return true;
+            }
+            catch (AuthenticationException ex) {}
         }
         return false;
     }
@@ -92,7 +97,6 @@ public class JWTFilter extends BasicHttpAuthenticationFilter {
             httpServletResponse.setStatus(401);
             PrintWriter pw = httpServletResponse.getWriter();
             pw.write("Unauthorized");
-            pw.flush();
         } catch (IOException ex) {
             log.error(ex.getMessage());
         }
