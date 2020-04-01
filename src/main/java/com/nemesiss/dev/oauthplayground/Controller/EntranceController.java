@@ -95,9 +95,9 @@ public class EntranceController {
     }
 
     @PlaygroundIDValidator
-    @RequestMapping(value = "{PlaygroundID}/logging",method = RequestMethod.GET)
+    @RequestMapping(value = "{PlaygroundID}/logging", method = RequestMethod.GET)
     public String GetPlaygroundOperationsLog(@PathVariable("PlaygroundID")
-                                                         String PlaygroundID) {
+                                                     String PlaygroundID) {
         return playgroundActionLogger.GetLogForPlayground(PlaygroundID);
     }
 
@@ -333,7 +333,7 @@ public class EntranceController {
         playgroundActionLogger.LogFormatter(
                 PlaygroundID,
                 request.getRequestURI(),
-                PlaygroundActionLogger.CommonLogs.AccessingSecrets, initialScopes.stream().reduce((a,b)->a+","+b).orElse(""));
+                PlaygroundActionLogger.CommonLogs.AccessingSecrets, initialScopes.stream().reduce((a, b) -> a + "," + b).orElse(""));
         return secretResult;
     }
 
