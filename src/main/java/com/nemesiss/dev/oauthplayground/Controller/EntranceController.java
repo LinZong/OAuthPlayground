@@ -1,12 +1,8 @@
 package com.nemesiss.dev.oauthplayground.Controller;
 
 import com.auth0.jwt.JWT;
-import com.fasterxml.jackson.core.JsonFactory;
-import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.nemesiss.dev.oauthplayground.Exception.*;
 import com.nemesiss.dev.oauthplayground.Model.AuthorizationRequestModel;
 import com.nemesiss.dev.oauthplayground.Model.CommonConstraints;
@@ -16,7 +12,6 @@ import com.nemesiss.dev.oauthplayground.ParamValidator.PlaygroundIDValidator;
 import com.nemesiss.dev.oauthplayground.Utils.EqualUtils;
 import com.nemesiss.dev.oauthplayground.Utils.JWTUtils;
 import com.nemesiss.dev.oauthplayground.Utils.SnowFlakeId;
-import javafx.util.Pair;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.shiro.authz.annotation.RequiresAuthentication;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -30,7 +25,6 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.util.UriComponents;
 import org.springframework.web.util.UriComponentsBuilder;
-import reactor.core.publisher.Flux;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
@@ -42,6 +36,7 @@ import javax.validation.constraints.Pattern;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @Slf4j
 @RestController
@@ -62,6 +57,8 @@ public class EntranceController {
     @Value("${deploy.url.prefix}")
     String DeployUrlPrefix;
 
+    @Autowired
+    PlaygroundActionLogger playgroundActionLogger;
 
     private static final String TOKEN_EXCHANGE_HASH_POOL = "TOKEN_EXCHANGE";
     private static final String AUTHENTICATION_INFO_HASH_POOL = "AUTHENTICATION_INFO";
@@ -83,12 +80,25 @@ public class EntranceController {
     public @ResponseBody
     Object CreatePlayground(@Valid @RequestBody PlaygroundInitialModel PlaygroundInitInfo, HttpServletRequest request) throws PlaygroundException, JsonProcessingException {
         long NewPlayground = snowFlakeId.nextId();
-
-        UriComponents loginPath = AuthUrlBuilder(NewPlayground, "login").build();
-        UriComponents logPath = AuthUrlBuilder(NewPlayground, "logging").build();
-
         WritePlaygroundInfoToCache(NewPlayground, PlaygroundInitInfo);
-        return new PlaygroundInfoModel(loginPath.toUriString(), logPath.toUriString());
+        playgroundActionLogger.LogFormatter(String.valueOf(NewPlayground), request.getRequestURI(), PlaygroundActionLogger.CommonLogs.Playground_Created);
+        return new PlaygroundInfoModel(Stream.of(
+                "login",
+                "logging",
+                "authentication",
+                "token",
+                "scopes",
+                "secret")
+                .map((arg)
+                        -> AuthUrlBuilder(NewPlayground, arg).toUriString())
+                .toArray(String[]::new));
+    }
+
+    @PlaygroundIDValidator
+    @RequestMapping(value = "{PlaygroundID}/logging",method = RequestMethod.GET)
+    public String GetPlaygroundOperationsLog(@PathVariable("PlaygroundID")
+                                                         String PlaygroundID) {
+        return playgroundActionLogger.GetLogForPlayground(PlaygroundID);
     }
 
     @PlaygroundIDValidator
@@ -112,12 +122,12 @@ public class EntranceController {
                                              String ClientId,
                                      @RequestParam(value = "state", required = false)
                                              String State,
+                                     HttpServletRequest request,
                                      HttpSession session) throws PlaygroundNotExistedException, RedirectURLMismatchException, JsonProcessingException {
 
         MarkAsLogout(PlaygroundID, ClientId, session);
         UriComponents redirectExchangeTokenUrl = UriComponentsBuilder.fromHttpUrl(RedirectUri).build();
         PlaygroundInitialModel playground = GetPlaygroundInitialInfo(PlaygroundID);
-
         StringBuilder host = new StringBuilder(Objects.requireNonNull(redirectExchangeTokenUrl.getHost()));
         int port;
         if ((port = redirectExchangeTokenUrl.getPort()) != -1) {
@@ -126,12 +136,12 @@ public class EntranceController {
         if (!playground.getHost().equals(host.toString())) {
             throw new RedirectURLMismatchException(playground.getHost(), redirectExchangeTokenUrl.getHost());
         }
-
         List<String> scopes = Arrays.stream(Scopes.split(",")).collect(Collectors.toList());
-
         AuthorizationRequestModel AuthRequest = new AuthorizationRequestModel(ResponseType, RedirectUri, scopes, ClientId, State);
-        WriteAuthorizationRequestModelToCache(PlaygroundID, AuthRequest);
 
+        playgroundActionLogger.LogFormatter(PlaygroundID, request.getRequestURI(), PlaygroundActionLogger.CommonLogs.Raise_Authentication_Request, AuthRequest.toString());
+
+        WriteAuthorizationRequestModelToCache(PlaygroundID, AuthRequest);
         return AuthUrlBuilder(PlaygroundID, "authentication")
                 .queryParam("client_id", ClientId)
                 .queryParam("redirect_uri", RedirectUri).toUriString();
@@ -174,6 +184,7 @@ public class EntranceController {
                                                       String ClientId,
                                               @RequestBody
                                                       Map<String, Object> credentials,
+                                              HttpServletRequest request,
                                               HttpServletResponse response,
                                               HttpSession session
     ) throws PlaygroundNotExistedException, CredentialMismatchException, JsonProcessingException, NoAuthenticationRequestException, RedirectURLMismatchException {
@@ -191,8 +202,11 @@ public class EntranceController {
 
         if (!EqualUtils.CompareTwoMap(originCredentials, credentials)) {
             response.setStatus(401);
+            playgroundActionLogger.LogFormatter(PlaygroundID, request.getRequestURI(), PlaygroundActionLogger.CommonLogs.Authentication_On_AuthCenter_Failed);
             throw new CredentialMismatchException();
         }
+
+        playgroundActionLogger.LogFormatter(PlaygroundID, request.getRequestURI(), PlaygroundActionLogger.CommonLogs.Authentication_On_AuthCenter_Successful);
         MarkAsLogin(PlaygroundID, ClientId, session);
         Map<String, List<String>> PickupScopes = new HashMap<>();
         PickupScopes.put("scopes", AuthRequest.getScopes());
@@ -224,7 +238,7 @@ public class EntranceController {
         if (!codeOnServer.equals(code)) {
             throw new TokenExchangeCodeMismatchException(code);
         }
-
+        playgroundActionLogger.LogFormatter(PlaygroundID, request.getRequestURI(), PlaygroundActionLogger.CommonLogs.Exchange_Token_On_DevServer);
         String approvedSecrets = redisTemplate.opsForValue().get(APPROVED_SECRETS + PlaygroundID);
         Map<String, String> ret = new HashMap<>();
         if (approvedSecrets == null) {
@@ -245,6 +259,7 @@ public class EntranceController {
     public Object MarkApprovedScopes(@PathVariable("PlaygroundID") String PlaygroundID,
                                      @RequestParam("client_id") String ClientId,
                                      @RequestParam("scopes") String Scopes,
+                                     HttpServletRequest request,
                                      HttpSession session) throws NoAuthenticationRequestException, JsonProcessingException {
 
         if (!DetectLogin(PlaygroundID, ClientId, session)) {
@@ -262,14 +277,34 @@ public class EntranceController {
                 UriComponentsBuilder builder = UriComponentsBuilder.fromHttpUrl(AuthRequest.getRedirectUri());
                 Set<String> UserPostScopes = Arrays.stream(Scopes.split(",")).collect(Collectors.toSet());
                 Set<String> ApprovedScopes = GetValidateScopes(new HashSet<>(AuthRequest.getScopes()), UserPostScopes);
-                String Token = JWTUtils.Sign(PlaygroundID, new ArrayList<>(ApprovedScopes));
-                builder.fragment(String.format("token=%s",Token));
+                List<String> scopeList = new ArrayList<>(ApprovedScopes);
+
+                playgroundActionLogger.LogFormatter(
+                        PlaygroundID,
+                        request.getRequestURI(),
+                        PlaygroundActionLogger
+                                .CommonLogs.Scope_Approved,
+                        scopeList
+                                .stream()
+                                .reduce((a, b) -> a + "," + b).orElse(""));
+
+                String Token = JWTUtils.Sign(PlaygroundID, scopeList);
+                builder.fragment(String.format("token=%s", Token));
                 return builder.toUriString();
             }
             case CommonConstraints.RESPONSE_TYPE_PASSWD: {
                 Set<String> UserPostScopes = Arrays.stream(Scopes.split(",")).collect(Collectors.toSet());
                 Set<String> ApprovedScopes = GetValidateScopes(new HashSet<>(AuthRequest.getScopes()), UserPostScopes);
-                String Token = JWTUtils.Sign(PlaygroundID, new ArrayList<>(ApprovedScopes));
+                List<String> scopeList = new ArrayList<>(ApprovedScopes);
+                String Token = JWTUtils.Sign(PlaygroundID, scopeList);
+                playgroundActionLogger.LogFormatter(
+                        PlaygroundID,
+                        request.getRequestURI(),
+                        PlaygroundActionLogger
+                                .CommonLogs.Scope_Approved,
+                        scopeList
+                                .stream()
+                                .reduce((a, b) -> a + "," + b).orElse(""));
                 return JWTUtils.GetTokenResponse(Token);
             }
             case CommonConstraints.RESPONSE_TYPE_CLIENT: {
@@ -279,8 +314,6 @@ public class EntranceController {
         return "Empty!";
     }
 
-
-
     @PlaygroundIDValidator
     @RequestMapping("{PlaygroundID}/secret")
     @RequiresAuthentication
@@ -288,15 +321,19 @@ public class EntranceController {
         PlaygroundInitialModel playground = GetPlaygroundInitialInfo(PlaygroundID);
         Optional<String> Token = JWTUtils.GetTokenFromHeader(request);
         String scopesStr = JWT.decode(Token.get()).getClaim("scopes").asString();
-
         Map<String, Object> initialScopeMap = playground.getScopes();
         Set<String> initialScopes = initialScopeMap.keySet();
         Set<String> requestedScopes = Arrays.stream(scopesStr.split(",")).collect(Collectors.toSet());
         initialScopes.retainAll(requestedScopes);
+
         Map<String, Object> secretResult = new HashMap<>();
         for (String initialScope : initialScopes) {
             secretResult.put(initialScope, initialScopeMap.get(initialScope));
         }
+        playgroundActionLogger.LogFormatter(
+                PlaygroundID,
+                request.getRequestURI(),
+                PlaygroundActionLogger.CommonLogs.AccessingSecrets, initialScopes.stream().reduce((a,b)->a+","+b).orElse(""));
         return secretResult;
     }
 

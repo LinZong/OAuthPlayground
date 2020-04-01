@@ -9,7 +9,9 @@ import java.util.Map;
 
 @Data
 @AllArgsConstructor
+@NoArgsConstructor
 public class PlaygroundInitialModel {
+
 
     @JsonProperty("host")
     @NotNull(message = "Token exchange host ip/url must not be null.")
