@@ -8,6 +8,7 @@ import org.springframework.data.redis.core.script.RedisScript;
 import org.springframework.stereotype.Component;
 
 import java.text.SimpleDateFormat;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Date;
 
@@ -45,7 +46,7 @@ public class PlaygroundActionLogger {
             builder.append(content).append(" ");
         }
         builder.append("\n");
-        WritePlaygroundLog(PlaygroundID,builder.toString());
+        WritePlaygroundLog(PlaygroundID, builder.toString());
     }
 
     public void LogFormatter(long PlaygroundID, String AccessEndpoint, String... contents) {
@@ -57,11 +58,12 @@ public class PlaygroundActionLogger {
         return result == null ? "" : result;
     }
 
-    private static final String AppendLogWithExpiredScript = "if redis.call('exists',KEYS[1]) == 0 then redis.call('setex',KEYS[1], 3600,ARGV[1]) return 0 else redis.call('append',KEYS[1],ARGV[1]) return 1 end";
+    //    private static final String AppendLogWithExpiredScript = "if redis.call('exists',KEYS[1]) == 0 then redis.call('setex',KEYS[1], 3600,ARGV[1]) return 0 else redis.call('append',KEYS[1],ARGV[1]) return 1 end";
+    private static final String AppendLogWithExpiredScript = "if redis.call('exists',KEYS[1]) == 0 then redis.call('setex',KEYS[1], redis.call('ttl',KEYS[2]) ,ARGV[1]) return 0 else redis.call('append',KEYS[1],ARGV[1]) return 1 end";
 
     private void WritePlaygroundLog(String PlaygroundID, String Log) {
         DefaultRedisScript<Long> redisScript = new DefaultRedisScript<>(AppendLogWithExpiredScript, Long.class);
-        Long Reply = redisTemplate.execute(redisScript, Collections.singletonList(PLAYGROUND_LOGGER_PREFIX + PlaygroundID),Log);
+        Long Reply = redisTemplate.execute(redisScript, Arrays.asList(PLAYGROUND_LOGGER_PREFIX + PlaygroundID, PlaygroundID), Log);
         log.info("Redis script reply:" + Reply);
     }
 }
