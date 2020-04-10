@@ -4,19 +4,17 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
-import org.springframework.data.redis.core.script.RedisScript;
 import org.springframework.stereotype.Component;
 
 import java.text.SimpleDateFormat;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.Date;
 
 @Component
 @Slf4j
 public class PlaygroundActionLogger {
 
-    public class CommonLogs {
+    public static class CommonLogs {
         public static final String Playground_Created = "Playground Created!";
         public static final String Raise_Authentication_Request = "Authentication request raised!";
         public static final String Do_Authentication_On_AuthCenter = "Processing authentication on OAuth Playground auth center.";
@@ -58,7 +56,6 @@ public class PlaygroundActionLogger {
         return result == null ? "" : result;
     }
 
-    //    private static final String AppendLogWithExpiredScript = "if redis.call('exists',KEYS[1]) == 0 then redis.call('setex',KEYS[1], 3600,ARGV[1]) return 0 else redis.call('append',KEYS[1],ARGV[1]) return 1 end";
     private static final String AppendLogWithExpiredScript = "if redis.call('exists',KEYS[1]) == 0 then redis.call('setex',KEYS[1], redis.call('ttl',KEYS[2]) ,ARGV[1]) return 0 else redis.call('append',KEYS[1],ARGV[1]) return 1 end";
 
     private void WritePlaygroundLog(String PlaygroundID, String Log) {
