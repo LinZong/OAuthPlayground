@@ -27,7 +27,8 @@ public class AOPExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     @ResponseBody
-    public static ErrorResponse ConstraintViolationExceptionGet(Exception e) {
+    public static ErrorResponse ExceptionGet(Exception e) {
+        e.printStackTrace();
         return new ErrorResponse(-1, e.getMessage());
     }
 }

@@ -14,6 +14,7 @@ import com.nemesiss.dev.oauthplayground.Utils.JWTUtils;
 import com.nemesiss.dev.oauthplayground.Utils.SnowFlakeId;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.shiro.authz.annotation.RequiresAuthentication;
+import org.hibernate.validator.internal.engine.ConstraintViolationImpl;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
@@ -29,10 +30,12 @@ import org.springframework.web.util.UriComponentsBuilder;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
+import javax.validation.ConstraintViolationException;
 import javax.validation.Valid;
 import javax.validation.constraints.NotBlank;
 import javax.validation.constraints.NotEmpty;
 import javax.validation.constraints.Pattern;
+import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -108,9 +111,7 @@ public class EntranceController {
                                      @Pattern(regexp = "^(code|implicit|password)$")
                                      @RequestParam("response_type")
                                              String ResponseType,
-                                     @NotBlank
-                                     @NotEmpty
-                                     @RequestParam("redirect_uri")
+                                     @RequestParam(value = "redirect_uri",required = false)
                                              String RedirectUri,
                                      @NotBlank
                                      @NotEmpty
@@ -123,18 +124,26 @@ public class EntranceController {
                                      @RequestParam(value = "state", required = false)
                                              String State,
                                      HttpServletRequest request,
-                                     HttpSession session) throws PlaygroundNotExistedException, RedirectURLMismatchException, JsonProcessingException {
+                                     HttpServletResponse response,
+                                     HttpSession session) throws PlaygroundNotExistedException, RedirectURLMismatchException, IOException {
 
         MarkAsLogout(PlaygroundID, ClientId, session);
-        UriComponents redirectExchangeTokenUrl = UriComponentsBuilder.fromHttpUrl(RedirectUri).build();
-        PlaygroundInitialModel playground = GetPlaygroundInitialInfo(PlaygroundID);
-        StringBuilder host = new StringBuilder(Objects.requireNonNull(redirectExchangeTokenUrl.getHost()));
-        int port;
-        if ((port = redirectExchangeTokenUrl.getPort()) != -1) {
-            host.append(":").append(port);
+
+        if(!ResponseType.equals("password") && (RedirectUri == null || StringUtils.isEmpty(RedirectUri))) {
+            throw new ConstraintViolationException("redirect_uri is missing",null);
         }
-        if (!playground.getHost().equals(host.toString())) {
-            throw new RedirectURLMismatchException(playground.getHost(), redirectExchangeTokenUrl.getHost());
+
+        if(!StringUtils.isEmpty(RedirectUri)) {
+            UriComponents redirectExchangeTokenUrl = UriComponentsBuilder.fromHttpUrl(RedirectUri).build();
+            PlaygroundInitialModel playground = GetPlaygroundInitialInfo(PlaygroundID);
+            StringBuilder host = new StringBuilder(Objects.requireNonNull(redirectExchangeTokenUrl.getHost()));
+            int port;
+            if ((port = redirectExchangeTokenUrl.getPort()) != -1) {
+                host.append(":").append(port);
+            }
+            if (!playground.getHost().equals(host.toString())) {
+                throw new RedirectURLMismatchException(playground.getHost(), redirectExchangeTokenUrl.getHost());
+            }
         }
         List<String> scopes = Arrays.stream(Scopes.split(",")).collect(Collectors.toList());
         AuthorizationRequestModel AuthRequest = new AuthorizationRequestModel(ResponseType, RedirectUri, scopes, ClientId, State);
@@ -142,9 +151,13 @@ public class EntranceController {
         playgroundActionLogger.LogFormatter(PlaygroundID, request.getRequestURI(), PlaygroundActionLogger.CommonLogs.Raise_Authentication_Request, AuthRequest.toString());
 
         WriteAuthorizationRequestModelToCache(PlaygroundID, AuthRequest);
-        return AuthUrlBuilder(PlaygroundID, "authentication")
+        String RedirectUrlRet = AuthUrlBuilder(PlaygroundID, "authentication")
                 .queryParam("client_id", ClientId)
                 .queryParam("redirect_uri", RedirectUri).toUriString();
+
+        response.sendRedirect(RedirectUrlRet);
+
+        return RedirectUrlRet;
     }
 
     @PlaygroundIDValidator
@@ -154,13 +167,16 @@ public class EntranceController {
                                               @NotEmpty
                                               @RequestParam("client_id")
                                                       String ClientId,
-                                              @NotBlank
-                                              @NotEmpty
-                                              @RequestParam("redirect_uri") String RedirectUri,
+                                              @RequestParam(value = "redirect_uri",required = false) String RedirectUri,
                                               HttpSession session) throws NoAuthenticationRequestException, JsonProcessingException, RedirectURLMismatchException {
         if (DetectLogin(PlaygroundID, ClientId, session)) {
             UriComponentsBuilder redirectUri = UriComponentsBuilder.fromHttpUrl(RedirectUri);
             AuthorizationRequestModel AuthRequest = GetAuthenticationRequestModel(PlaygroundID);
+
+            if(!AuthRequest.getResponseType().equals("password") && StringUtils.isEmpty(RedirectUri)) {
+                throw new ConstraintViolationException("redirect_uri is missing",null);
+            }
+
             if (!AuthRequest.getRedirectUri().equals(redirectUri.toUriString())) {
                 throw new RedirectURLMismatchException(AuthRequest.getRedirectUri(), RedirectUri);
             }
@@ -174,9 +190,7 @@ public class EntranceController {
     @RequestMapping(value = "{PlaygroundID}/authentication", method = RequestMethod.POST)
     public Object HandleAuthenticationRequest(@PathVariable("PlaygroundID")
                                                       String PlaygroundID,
-                                              @NotBlank
-                                              @NotEmpty
-                                              @RequestParam("redirect_uri")
+                                              @RequestParam(value = "redirect_uri",required = false)
                                                       String RedirectUri,
                                               @NotBlank
                                               @NotEmpty
@@ -194,10 +208,16 @@ public class EntranceController {
 
         AuthorizationRequestModel AuthRequest = GetAuthenticationRequestModel(PlaygroundID);
 
-        UriComponentsBuilder redirectUri = UriComponentsBuilder.fromHttpUrl(RedirectUri);
+        if(!AuthRequest.getResponseType().equals("password") && (RedirectUri == null || StringUtils.isEmpty(RedirectUri))) {
+            throw new ConstraintViolationException("redirect_uri is missing",null);
+        }
 
-        if (!AuthRequest.getRedirectUri().equals(redirectUri.toUriString())) {
-            throw new RedirectURLMismatchException(AuthRequest.getRedirectUri(), RedirectUri);
+        if(!StringUtils.isEmpty(RedirectUri)) {
+            UriComponentsBuilder redirectUri = UriComponentsBuilder.fromHttpUrl(RedirectUri);
+
+            if (!redirectUri.toUriString().equals(AuthRequest.getRedirectUri())) {
+                throw new RedirectURLMismatchException(AuthRequest.getRedirectUri(), RedirectUri);
+            }
         }
 
         if (!EqualUtils.CompareTwoMap(originCredentials, credentials)) {
@@ -207,7 +227,23 @@ public class EntranceController {
         }
 
         playgroundActionLogger.LogFormatter(PlaygroundID, request.getRequestURI(), PlaygroundActionLogger.CommonLogs.Authentication_On_AuthCenter_Successful);
+        
         MarkAsLogin(PlaygroundID, ClientId, session);
+        // Just generate access token for all scopes in password mode.
+        if(AuthRequest.getResponseType().equals("password")) {
+            List<String> scopeList = new ArrayList<>(AuthRequest.getScopes());
+            String Token = JWTUtils.Sign(PlaygroundID, scopeList);
+            playgroundActionLogger.LogFormatter(
+                    PlaygroundID,
+                    request.getRequestURI(),
+                    PlaygroundActionLogger
+                            .CommonLogs.Scope_Approved,
+                    scopeList
+                            .stream()
+                            .reduce((a, b) -> a + "," + b).orElse(""));
+            return JWTUtils.GetTokenResponse(Token);
+        }
+
         Map<String, List<String>> PickupScopes = new HashMap<>();
         PickupScopes.put("scopes", AuthRequest.getScopes());
         return PickupScopes;
@@ -244,7 +280,7 @@ public class EntranceController {
         if (approvedSecrets == null) {
             approvedSecrets = "";
         }
-        ret.put("Token",
+        ret.put("token",
                 JWTUtils.Sign(
                         PlaygroundID,
                         Arrays.stream(approvedSecrets
@@ -292,21 +328,7 @@ public class EntranceController {
                 builder.fragment(String.format("token=%s", Token));
                 return builder.toUriString();
             }
-            case CommonConstraints.RESPONSE_TYPE_PASSWD: {
-                Set<String> UserPostScopes = Arrays.stream(Scopes.split(",")).collect(Collectors.toSet());
-                Set<String> ApprovedScopes = GetValidateScopes(new HashSet<>(AuthRequest.getScopes()), UserPostScopes);
-                List<String> scopeList = new ArrayList<>(ApprovedScopes);
-                String Token = JWTUtils.Sign(PlaygroundID, scopeList);
-                playgroundActionLogger.LogFormatter(
-                        PlaygroundID,
-                        request.getRequestURI(),
-                        PlaygroundActionLogger
-                                .CommonLogs.Scope_Approved,
-                        scopeList
-                                .stream()
-                                .reduce((a, b) -> a + "," + b).orElse(""));
-                return JWTUtils.GetTokenResponse(Token);
-            }
+            case CommonConstraints.RESPONSE_TYPE_PASSWD:
             case CommonConstraints.RESPONSE_TYPE_CLIENT: {
                 break;
             }
