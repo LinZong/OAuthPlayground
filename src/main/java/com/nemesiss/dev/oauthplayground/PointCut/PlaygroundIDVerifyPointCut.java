@@ -26,12 +26,10 @@ public class PlaygroundIDVerifyPointCut {
 
     @Around("verifyPlaygroundID()")
     public Object doVerifyPlaygroundID(ProceedingJoinPoint proceedingJoinPoint) throws Throwable {
-
         MethodSignature signature = (MethodSignature) proceedingJoinPoint.getSignature();
         Method method = signature.getMethod();
         PlaygroundIDValidator validator = method.getAnnotation(PlaygroundIDValidator.class);
         Object[] args = proceedingJoinPoint.getArgs();
-
         Object result = null;
         if (args.length > validator.order() && args[validator.order()] instanceof String) {
             String playgroundID = (String) args[validator.order()];

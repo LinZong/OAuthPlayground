@@ -14,6 +14,14 @@ import java.util.List;
 @AllArgsConstructor
 @NoArgsConstructor
 public class AuthorizationRequestModel {
+
+
+    public static class ResponseTypes {
+        public static final String CODE = "code";
+        public static final String IMPLICIT = "implicit";
+        public static final String PASSWORD = "password";
+    }
+
     @NotNull
     @NotEmpty
     @NotBlank
@@ -39,6 +47,4 @@ public class AuthorizationRequestModel {
 
     @JsonProperty("state")
     private String State;
-
-
 }

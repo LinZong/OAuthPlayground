@@ -11,10 +11,10 @@ import com.nemesiss.dev.oauthplayground.Model.PlaygroundInitialModel;
 import com.nemesiss.dev.oauthplayground.ParamValidator.PlaygroundIDValidator;
 import com.nemesiss.dev.oauthplayground.Utils.EqualUtils;
 import com.nemesiss.dev.oauthplayground.Utils.JWTUtils;
+import com.nemesiss.dev.oauthplayground.Utils.PlaygroundUtils;
 import com.nemesiss.dev.oauthplayground.Utils.SnowFlakeId;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.shiro.authz.annotation.RequiresAuthentication;
-import org.hibernate.validator.internal.engine.ConstraintViolationImpl;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
@@ -230,7 +230,7 @@ public class EntranceController {
         
         MarkAsLogin(PlaygroundID, ClientId, session);
         // Just generate access token for all scopes in password mode.
-        if(AuthRequest.getResponseType().equals("password")) {
+        if(PlaygroundUtils.IsPasswordMode(AuthRequest)) {
             List<String> scopeList = new ArrayList<>(AuthRequest.getScopes());
             String Token = JWTUtils.Sign(PlaygroundID, scopeList);
             playgroundActionLogger.LogFormatter(
@@ -399,8 +399,6 @@ public class EntranceController {
         }
         return content;
     }
-
-
     // =========== SESSION 相关操作 ===============
     private static void MarkAsLogin(String PlaygroundID, String ClientId, HttpSession session) {
         session.setAttribute(PlaygroundID, ClientId);
@@ -440,5 +438,4 @@ public class EntranceController {
     private String GetStringObject(String Key) {
         return redisTemplate.opsForValue().get(Key);
     }
-
 }
