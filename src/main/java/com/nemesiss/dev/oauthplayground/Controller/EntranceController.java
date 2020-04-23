@@ -3,12 +3,13 @@ package com.nemesiss.dev.oauthplayground.Controller;
 import com.auth0.jwt.JWT;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.nemesiss.dev.oauthplayground.Annotations.DebugRedirect;
 import com.nemesiss.dev.oauthplayground.Exception.*;
 import com.nemesiss.dev.oauthplayground.Model.AuthorizationRequestModel;
 import com.nemesiss.dev.oauthplayground.Model.CommonConstraints;
 import com.nemesiss.dev.oauthplayground.Model.PlaygroundInfoModel;
 import com.nemesiss.dev.oauthplayground.Model.PlaygroundInitialModel;
-import com.nemesiss.dev.oauthplayground.ParamValidator.PlaygroundIDValidator;
+import com.nemesiss.dev.oauthplayground.Annotations.PlaygroundIDValidator;
 import com.nemesiss.dev.oauthplayground.Utils.EqualUtils;
 import com.nemesiss.dev.oauthplayground.Utils.JWTUtils;
 import com.nemesiss.dev.oauthplayground.Utils.PlaygroundUtils;
@@ -26,6 +27,7 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.util.UriComponents;
 import org.springframework.web.util.UriComponentsBuilder;
+import sun.security.provider.SecureRandom;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
@@ -104,6 +106,7 @@ public class EntranceController {
         return playgroundActionLogger.GetLogForPlayground(PlaygroundID);
     }
 
+    @DebugRedirect
     @PlaygroundIDValidator
     @RequestMapping(value = "{PlaygroundID}/login", method = RequestMethod.GET)
     public Object HandleLoginRequest(@PathVariable("PlaygroundID")
@@ -128,7 +131,7 @@ public class EntranceController {
                                      HttpSession session) throws PlaygroundNotExistedException, RedirectURLMismatchException, IOException {
 
         MarkAsLogout(PlaygroundID, ClientId, session);
-
+        SecureRandom
         if(!ResponseType.equals("password") && (RedirectUri == null || StringUtils.isEmpty(RedirectUri))) {
             throw new ConstraintViolationException("redirect_uri is missing",null);
         }
@@ -151,13 +154,11 @@ public class EntranceController {
         playgroundActionLogger.LogFormatter(PlaygroundID, request.getRequestURI(), PlaygroundActionLogger.CommonLogs.Raise_Authentication_Request, AuthRequest.toString());
 
         WriteAuthorizationRequestModelToCache(PlaygroundID, AuthRequest);
-        String RedirectUrlRet = AuthUrlBuilder(PlaygroundID, "authentication")
+
+
+        return AuthUrlBuilder(PlaygroundID, "authentication")
                 .queryParam("client_id", ClientId)
                 .queryParam("redirect_uri", RedirectUri).toUriString();
-
-        response.sendRedirect(RedirectUrlRet);
-
-        return RedirectUrlRet;
     }
 
     @PlaygroundIDValidator
@@ -290,13 +291,15 @@ public class EntranceController {
     }
 
 
+    @DebugRedirect
     @PlaygroundIDValidator
     @RequestMapping(value = "{PlaygroundID}/scopes")
     public Object MarkApprovedScopes(@PathVariable("PlaygroundID") String PlaygroundID,
                                      @RequestParam("client_id") String ClientId,
                                      @RequestParam("scopes") String Scopes,
                                      HttpServletRequest request,
-                                     HttpSession session) throws NoAuthenticationRequestException, JsonProcessingException {
+                                     HttpServletResponse response,
+                                     HttpSession session) throws NoAuthenticationRequestException, IOException {
 
         if (!DetectLogin(PlaygroundID, ClientId, session)) {
             throw new NoAuthenticationRequestException(PlaygroundID);
@@ -307,6 +310,7 @@ public class EntranceController {
         switch (AuthRequest.getResponseType()) {
             case CommonConstraints
                     .RESPONSE_TYPE_CODE: {
+                //                response.sendRedirect(redirectUri);
                 return GenerateTokenExchangeUrl(UriComponentsBuilder.fromHttpUrl(AuthRequest.getRedirectUri()), PlaygroundID, AuthRequest.getState());
             }
             case CommonConstraints.RESPONSE_TYPE_IMPLICIT: {

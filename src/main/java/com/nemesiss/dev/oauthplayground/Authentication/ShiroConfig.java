@@ -28,7 +28,7 @@ public class ShiroConfig {
         shiroFilterFactoryBean.setFilters(filtersMap);
 
         // 拦截器
-        Map<String, String> filterChainDefinitionMap = new LinkedHashMap<String, String>();
+        Map<String, String> filterChainDefinitionMap = new LinkedHashMap<>();
 
         // 其他的
         filterChainDefinitionMap.put("/oauth2/**/secret", "jwt");

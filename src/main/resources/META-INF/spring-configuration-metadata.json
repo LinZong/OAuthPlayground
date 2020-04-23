@@ -3,22 +3,27 @@
     {
       "name": "snowflake.datacenter.id",
       "type": "java.lang.Long",
-      "description": "Description for snowflake.datacenter.id."
+      "description": "Snowflake算法中的数据中心ID。"
     },
     {
       "name": "snowflake.machine.id",
       "type": "java.lang.Long",
-      "description": "Description for snowflake.machine.id."
+      "description": "Snowflake算法中的机器ID。"
     },
     {
       "name": "deploy.url.prefix",
       "type": "java.lang.String",
-      "description": "Description for deploy.url.prefix."
+      "description": "部署到服务器后URL Domain。"
     },
     {
       "name": "jwt.expired",
       "type": "java.lang.Long",
-      "description": "Description for deploy.url.prefix."
+      "description": "JWT Token过期时间，以毫秒为单位。"
+    },
+    {
+      "name": "debug.redirect",
+      "type": "java.lang.Boolean",
+      "description": "决定某些需要进行302跳转的页面是真的进行302跳转还是把要跳的网址打印在Response Body中。"
     }
   ]
 }

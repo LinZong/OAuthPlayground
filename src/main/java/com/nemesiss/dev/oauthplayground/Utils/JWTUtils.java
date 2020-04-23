@@ -65,7 +65,6 @@ public class JWTUtils {
         }
         return true;
     }
-
     public static Optional<String> GetTokenFromHeader(HttpServletRequest request) {
         String authorization = request.getHeader("Authorization");
         String[] tokens = authorization.split(" ");

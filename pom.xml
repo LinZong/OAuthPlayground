@@ -77,6 +77,11 @@
             <optional>true</optional>
             <scope>true</scope>
         </dependency>
+        <dependency>
+            <groupId>commons-validator</groupId>
+            <artifactId>commons-validator</artifactId>
+            <version>1.6</version>
+        </dependency>
     </dependencies>
 
     <build>
@@ -123,6 +128,7 @@
                                     <directory>${basedir}/src/main/resources</directory>
                                     <includes>
                                         <include>application.properties</include>
+                                        <include>application-production.properties</include>
                                     </includes>
                                     <filtering>false</filtering>
                                 </resource>
