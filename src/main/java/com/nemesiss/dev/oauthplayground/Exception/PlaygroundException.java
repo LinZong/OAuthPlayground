@@ -3,7 +3,7 @@ package com.nemesiss.dev.oauthplayground.Exception;
 import lombok.Getter;
 
 @Getter
-public class PlaygroundException extends Exception {
+public class PlaygroundException extends RuntimeException {
 
     private int Code;
 

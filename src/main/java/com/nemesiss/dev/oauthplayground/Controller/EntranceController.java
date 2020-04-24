@@ -131,7 +131,6 @@ public class EntranceController {
                                      HttpSession session) throws PlaygroundNotExistedException, RedirectURLMismatchException, IOException {
 
         MarkAsLogout(PlaygroundID, ClientId, session);
-        SecureRandom
         if(!ResponseType.equals("password") && (RedirectUri == null || StringUtils.isEmpty(RedirectUri))) {
             throw new ConstraintViolationException("redirect_uri is missing",null);
         }
@@ -310,7 +309,6 @@ public class EntranceController {
         switch (AuthRequest.getResponseType()) {
             case CommonConstraints
                     .RESPONSE_TYPE_CODE: {
-                //                response.sendRedirect(redirectUri);
                 return GenerateTokenExchangeUrl(UriComponentsBuilder.fromHttpUrl(AuthRequest.getRedirectUri()), PlaygroundID, AuthRequest.getState());
             }
             case CommonConstraints.RESPONSE_TYPE_IMPLICIT: {

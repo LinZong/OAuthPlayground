@@ -27,8 +27,6 @@ public class PlaygroundIDVerifyPointCut {
     public Object doVerifyPlaygroundID(ProceedingJoinPoint proceedingJoinPoint) throws Throwable {
         MethodSignature signature = (MethodSignature) proceedingJoinPoint.getSignature();
         PlaygroundIDValidator validator = AnnotationGetter.GetAnnotationOnMethod(signature.getMethod(), PlaygroundIDValidator.class);
-
-
         Object[] args = proceedingJoinPoint.getArgs();
         Object result = null;
         if (args.length > validator.order() && args[validator.order()] instanceof String) {
