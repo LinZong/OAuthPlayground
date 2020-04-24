@@ -82,8 +82,7 @@ public class EntranceController {
     }
 
     @PostMapping(value = "create", produces = {MediaType.APPLICATION_JSON_VALUE})
-    public @ResponseBody
-    Object CreatePlayground(@Valid @RequestBody PlaygroundInitialModel PlaygroundInitInfo, HttpServletRequest request) throws PlaygroundException, JsonProcessingException {
+    public Object CreatePlayground(@Valid @RequestBody PlaygroundInitialModel PlaygroundInitInfo, HttpServletRequest request) throws PlaygroundException, JsonProcessingException {
         long NewPlayground = snowFlakeId.nextId();
         WritePlaygroundInfoToCache(NewPlayground, PlaygroundInitInfo);
         playgroundActionLogger.LogFormatter(String.valueOf(NewPlayground), request.getRequestURI(), PlaygroundActionLogger.CommonLogs.Playground_Created);
@@ -100,7 +99,7 @@ public class EntranceController {
     }
 
     @PlaygroundIDValidator
-    @RequestMapping(value = "{PlaygroundID}/logging", method = RequestMethod.GET)
+    @GetMapping(value = "{PlaygroundID}/logging")
     public String GetPlaygroundOperationsLog(@PathVariable("PlaygroundID")
                                                      String PlaygroundID) {
         return playgroundActionLogger.GetLogForPlayground(PlaygroundID);
@@ -108,7 +107,7 @@ public class EntranceController {
 
     @DebugRedirect
     @PlaygroundIDValidator
-    @RequestMapping(value = "{PlaygroundID}/login", method = RequestMethod.GET)
+    @GetMapping(value = "{PlaygroundID}/login")
     public Object HandleLoginRequest(@PathVariable("PlaygroundID")
                                              String PlaygroundID,
                                      @Pattern(regexp = "^(code|implicit|password)$")
@@ -161,7 +160,7 @@ public class EntranceController {
     }
 
     @PlaygroundIDValidator
-    @RequestMapping(value = "{PlaygroundID}/authentication", method = RequestMethod.GET)
+    @GetMapping(value = "{PlaygroundID}/authentication")
     public Object HandleAuthenticationRequest(@PathVariable("PlaygroundID") String PlaygroundID,
                                               @NotBlank
                                               @NotEmpty
@@ -187,7 +186,7 @@ public class EntranceController {
     }
 
     @PlaygroundIDValidator
-    @RequestMapping(value = "{PlaygroundID}/authentication", method = RequestMethod.POST)
+    @PostMapping(value = "{PlaygroundID}/authentication")
     public Object HandleAuthenticationRequest(@PathVariable("PlaygroundID")
                                                       String PlaygroundID,
                                               @RequestParam(value = "redirect_uri",required = false)
@@ -251,7 +250,7 @@ public class EntranceController {
 
 
     @PlaygroundIDValidator
-    @RequestMapping(value = "{PlaygroundID}/token", method = RequestMethod.GET)
+    @GetMapping(value = "{PlaygroundID}/token")
     public Object TokenExchange(@PathVariable("PlaygroundID")
                                         String PlaygroundID,
                                 @RequestParam("code") String code,
@@ -292,7 +291,7 @@ public class EntranceController {
 
     @DebugRedirect
     @PlaygroundIDValidator
-    @RequestMapping(value = "{PlaygroundID}/scopes")
+    @GetMapping(value = "{PlaygroundID}/scopes")
     public Object MarkApprovedScopes(@PathVariable("PlaygroundID") String PlaygroundID,
                                      @RequestParam("client_id") String ClientId,
                                      @RequestParam("scopes") String Scopes,
@@ -339,7 +338,7 @@ public class EntranceController {
     }
 
     @PlaygroundIDValidator
-    @RequestMapping("{PlaygroundID}/secret")
+    @GetMapping("{PlaygroundID}/secret")
     @RequiresAuthentication
     public Object GetSecret(@PathVariable("PlaygroundID") String PlaygroundID, HttpServletRequest request) throws PlaygroundNotExistedException, JsonProcessingException {
         PlaygroundInitialModel playground = GetPlaygroundInitialInfo(PlaygroundID);
