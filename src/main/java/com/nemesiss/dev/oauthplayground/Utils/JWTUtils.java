@@ -32,7 +32,11 @@ public class JWTUtils {
     @Value("${jwt.secret}")
     public void setSecret(String secret) {
         Secret = secret;
+        algorithm = Algorithm.HMAC256(Secret);
     }
+
+    // Cached Algorithm.
+    private static Algorithm algorithm;
 
     @Value("${jwt.expired}")
     public void setExpireTime(long expireTime) {
@@ -50,7 +54,6 @@ public class JWTUtils {
     }
 
     public static boolean Verify(String PlaygroundID, String Token) {
-        Algorithm algorithm = Algorithm.HMAC256(Secret);
         JWTVerifier verifier = JWT.require(algorithm)
                 .withClaim("playground", PlaygroundID)
                 .build();

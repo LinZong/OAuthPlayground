@@ -58,9 +58,10 @@ public class PlaygroundActionLogger {
 
     private static final String AppendLogWithExpiredScript = "if redis.call('exists',KEYS[1]) == 0 then redis.call('setex',KEYS[1], redis.call('ttl',KEYS[2]) ,ARGV[1]) return 0 else redis.call('append',KEYS[1],ARGV[1]) return 1 end";
 
+    private static final DefaultRedisScript<Long> AppendLogWithExpiredTypedScript = new DefaultRedisScript<>(AppendLogWithExpiredScript, Long.class);
+
     private void WritePlaygroundLog(String PlaygroundID, String Log) {
-        DefaultRedisScript<Long> redisScript = new DefaultRedisScript<>(AppendLogWithExpiredScript, Long.class);
-        Long Reply = redisTemplate.execute(redisScript, Arrays.asList(PLAYGROUND_LOGGER_PREFIX + PlaygroundID, PlaygroundID), Log);
+        Long Reply = redisTemplate.execute(AppendLogWithExpiredTypedScript, Arrays.asList(PLAYGROUND_LOGGER_PREFIX + PlaygroundID, PlaygroundID), Log);
         log.info("Redis script reply:" + Reply);
     }
 }
