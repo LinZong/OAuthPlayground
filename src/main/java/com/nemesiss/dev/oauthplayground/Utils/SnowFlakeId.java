@@ -1,7 +1,7 @@
 package com.nemesiss.dev.oauthplayground.Utils;
 
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.context.annotation.Configuration;
+import org.springframework.stereotype.Component;
 
 /**
  * 描述: Twitter的分布式自增ID雪花算法snowflake (Java版)
@@ -9,7 +9,7 @@ import org.springframework.context.annotation.Configuration;
  * @author yanpenglei
  * @create 2018-03-13 12:37
  **/
-@Configuration
+@Component
 public class SnowFlakeId {
 
     /**
