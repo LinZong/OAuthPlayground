@@ -14,6 +14,7 @@ import org.apache.shiro.subject.PrincipalCollection;
 public class JWTAuthentication extends AuthorizingRealm {
     @Override
     protected AuthorizationInfo doGetAuthorizationInfo(PrincipalCollection principalCollection) {
+
         return new SimpleAuthorizationInfo();
     }
 
@@ -21,8 +22,7 @@ public class JWTAuthentication extends AuthorizingRealm {
     protected AuthenticationInfo doGetAuthenticationInfo(AuthenticationToken authenticationToken) throws AuthenticationException {
         JWTTokenModel token = (JWTTokenModel) authenticationToken;
         if (JWTUtils.Verify(token.getPlaygroundID(), token.getToken())) {
-            Object credentials = token.getCredentials();
-            return new SimpleAuthenticationInfo(credentials, credentials, token.getPlaygroundID());
+            return new SimpleAuthenticationInfo(token.getPrincipal(), token.getCredentials(), token.getPlaygroundID());
         }
         throw new AuthenticationException("JWT Token Not Valid.");
     }

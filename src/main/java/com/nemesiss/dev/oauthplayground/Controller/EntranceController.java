@@ -4,18 +4,20 @@ import com.auth0.jwt.JWT;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nemesiss.dev.oauthplayground.Annotations.DebugRedirect;
+import com.nemesiss.dev.oauthplayground.Annotations.PlaygroundIDValidator;
 import com.nemesiss.dev.oauthplayground.Exception.*;
 import com.nemesiss.dev.oauthplayground.Model.AuthorizationRequestModel;
 import com.nemesiss.dev.oauthplayground.Model.CommonConstraints;
 import com.nemesiss.dev.oauthplayground.Model.PlaygroundInfoModel;
 import com.nemesiss.dev.oauthplayground.Model.PlaygroundInitialModel;
-import com.nemesiss.dev.oauthplayground.Annotations.PlaygroundIDValidator;
 import com.nemesiss.dev.oauthplayground.Utils.EqualUtils;
 import com.nemesiss.dev.oauthplayground.Utils.JWTUtils;
 import com.nemesiss.dev.oauthplayground.Utils.PlaygroundUtils;
 import com.nemesiss.dev.oauthplayground.Utils.SnowFlakeId;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.shiro.SecurityUtils;
 import org.apache.shiro.authz.annotation.RequiresAuthentication;
+import org.apache.shiro.authz.annotation.RequiresUser;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
@@ -27,7 +29,6 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.util.UriComponents;
 import org.springframework.web.util.UriComponentsBuilder;
-import sun.security.provider.SecureRandom;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
@@ -342,13 +343,10 @@ public class EntranceController {
     @RequiresAuthentication
     public Object GetSecret(@PathVariable("PlaygroundID") String PlaygroundID, HttpServletRequest request) throws PlaygroundNotExistedException, JsonProcessingException {
         PlaygroundInitialModel playground = GetPlaygroundInitialInfo(PlaygroundID);
-        Optional<String> Token = JWTUtils.GetTokenFromHeader(request);
-        String scopesStr = JWT.decode(Token.get()).getClaim("scopes").asString();
+        Set<String> requestedScopes = SecurityUtils.getSubject().getPrincipals().asSet();
         Map<String, Object> initialScopeMap = playground.getScopes();
         Set<String> initialScopes = initialScopeMap.keySet();
-        Set<String> requestedScopes = Arrays.stream(scopesStr.split(",")).collect(Collectors.toSet());
         initialScopes.retainAll(requestedScopes);
-
         Map<String, Object> secretResult = new HashMap<>();
         for (String initialScope : initialScopes) {
             secretResult.put(initialScope, initialScopeMap.get(initialScope));
