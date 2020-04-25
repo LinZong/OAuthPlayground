@@ -24,6 +24,9 @@ import java.util.Optional;
 public class JWTUtils {
 
 
+    private static HttpHeaders ContentTypeJsonHeader;
+
+
     public static String Secret;
 
 
@@ -38,11 +41,15 @@ public class JWTUtils {
     // Cached Algorithm.
     private static Algorithm algorithm;
 
+    static {
+        ContentTypeJsonHeader = new HttpHeaders();
+        ContentTypeJsonHeader.add("content-type", "application/json");
+    }
+
     @Value("${jwt.expired}")
     public void setExpireTime(long expireTime) {
         EXPIRE_TIME = expireTime;
     }
-
 
     public static String Sign(String PlaygroundID, List<String> ApprovedScopes) {
         Date date = new Date(System.currentTimeMillis() + EXPIRE_TIME);
@@ -64,20 +71,19 @@ public class JWTUtils {
         }
         return true;
     }
+
     public static Optional<String> GetTokenFromHeader(HttpServletRequest request) {
         String authorization = request.getHeader("Authorization");
         String[] tokens = authorization.split(" ");
         String token = null;
-        if(tokens.length == 2 && tokens[0].equals("Bearer") && !StringUtils.isEmpty(tokens[1])) {
+        if (tokens.length == 2 && tokens[0].equals("Bearer") && !StringUtils.isEmpty(tokens[1])) {
             token = tokens[1];
         }
         return Optional.ofNullable(token);
     }
 
     public static ResponseEntity<AbstractMap.SimpleEntry<String, String>> GetTokenResponse(String token) {
-        HttpHeaders headers = new HttpHeaders();
-        headers.add("content-type", "application/json");
         AbstractMap.SimpleEntry<String, String> body = new AbstractMap.SimpleEntry<>("token", token);
-        return new ResponseEntity<>(body, headers, HttpStatus.OK);
+        return new ResponseEntity<>(body, ContentTypeJsonHeader, HttpStatus.OK);
     }
 }
