@@ -9,7 +9,7 @@
     </parent>
     <groupId>com.nemesiss.dev</groupId>
     <artifactId>oauth-playground</artifactId>
-    <version>0.0.1-SNAPSHOT</version>
+    <version>1.0.0</version>
     <name>oauth-playground</name>
     <description>OAuth Playground</description>
 

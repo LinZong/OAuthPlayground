@@ -1,0 +1,31 @@
+spring:
+  redis:
+    database: 0
+    port: 6379
+    host: localhost
+    lettuce:
+      pool:
+        min-idle: 5
+        max-idle: 30
+        max-active: 30
+        max-wait: 20ms
+      shutdown-timeout: 200ms
+snowflake:
+  datacenter:
+    id: 0
+  machine:
+    id: 1
+server:
+  servlet:
+    session:
+      cookie:
+        max-age: 900
+deploy:
+  url:
+    prefix: http://127.0.0.1:8080
+jwt:
+  expired: 600000
+  secret: oauth-playground-secret
+
+debug:
+  redirect: true
